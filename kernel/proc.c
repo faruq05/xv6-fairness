@@ -19,6 +19,8 @@ extern void forkret(void);
 static void freeproc(struct proc *p);
 
 extern char trampoline[]; // trampoline.S
+//new code
+extern uint ticks;        // timer tick counter, defined in trap.c
 
 // helps ensure that wakeups of wait()ing
 // parents are not lost. helps obey the
@@ -146,6 +148,14 @@ found:
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
 
+  //new code
+  // --- Fairness Analyser: zero out tracking fields ---
+  // We must initialize to 0 here. If we don't, these fields
+  // contain leftover garbage from whatever used this memory before.
+  p->cpu_ticks      = 0;
+  p->wait_ticks     = 0;
+  p->sched_count    = 0;
+  p->last_sched_tick = 0;
   return p;
 }
 
@@ -425,6 +435,7 @@ void
 scheduler(void)
 {
   struct proc *p;
+  struct proc *q; //new code: second pointer for the wait_ticks pass
   struct cpu *c = mycpu();
 
   c->proc = 0;
@@ -441,12 +452,34 @@ scheduler(void)
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
       if(p->state == RUNNABLE) {
+        //new code
+         // --- Fairness: record that this process was chosen ---
+        p->sched_count++;              // one more time the scheduler picked us
+        p->last_sched_tick = ticks;    // remember when we last ran
+
         // Switch to chosen process.  It is the process's job
         // to release its lock and then reacquire it
         // before jumping back to us.
         p->state = RUNNING;
         c->proc = p;
-        swtch(&c->context, &p->context);
+
+        //new code
+        // --- Fairness: increment wait_ticks for all OTHER RUNNABLE procs ---
+        // While p is getting the CPU, every other RUNNABLE process is waiting.
+        // We scan the whole proc[] table and increment their wait_ticks.
+        // We must NOT hold p->lock while acquiring q->lock — but actually
+        // we already hold p->lock here, and q != p, so it's safe.
+        for(q = proc; q < &proc[NPROC]; q++){
+          if(q != p && q->state == RUNNABLE){
+            q->wait_ticks++;
+          }
+        }
+
+        swtch(&c->context, &p->context); //initially there
+
+        //new code
+        //--- Fairness: process finished its turn, credit one CPU tick ---
+        p->cpu_ticks++;
 
         // Process is done running for now.
         // It should have changed its p->state before coming back.
