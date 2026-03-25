@@ -104,4 +104,10 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+  
+  // --- New code: Fairness Analyser fields  ---
+  uint64 cpu_ticks;            // total timer ticks this process ran on CPU
+  uint64 wait_ticks;           // total ticks spent RUNNABLE but not scheduled
+  uint64 sched_count;          // how many times the scheduler picked this process
+  uint64 last_sched_tick;      // value of ticks global when process last ran
 };
