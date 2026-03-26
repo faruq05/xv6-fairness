@@ -117,31 +117,35 @@ sys_uptime(void)
 uint64
 sys_schedstat(void)
 {
-  uint64 addr;   // will hold the user-space pointer to struct pstat
+  uint64 addr;
 
-  // argaddr(0, &addr) reads the first argument (argument index 0)
-  // that the user passed to this syscall.
-  // The user called: schedstat(&st)
-  // So argument 0 is the address of their struct pstat variable.
+  // Read the user pointer (argument 0)
   argaddr(0, &addr);
+
   if(addr == 0)
-    return -1;  // if we can't read the argument, return error
-
-  // Declare a local kernel-side copy of struct pstat.
-  // schedstat() will fill this in by reading the proc[] table.
-  struct pstat st;
-
-  // Call the real kernel function that fills st with data.
-  if(schedstat(&st) < 0)
     return -1;
 
-  // copyout() copies bytes FROM kernel memory (our &st)
-  // TO user memory (the address the user gave us).
-  // Arguments: page table, destination address, source pointer, byte count.
-  // We MUST use copyout() and never write to addr directly —
-  // addr is a user virtual address, not a kernel address.
-  if(copyout(myproc()->pagetable, addr, (char*)&st, sizeof(st)) < 0)
-    return -1;
+  // Allocate struct pstat on the kernel HEAP, not the stack.
+  // kalloc() gives us one page (4096 bytes) of kernel memory.
+  // Our struct pstat is 3840 bytes so it fits safely.
+  struct pstat *st = (struct pstat*)kalloc();
+  if(st == 0)
+    return -1;   // out of memory
 
-  return 0;  // success
+  // Fill the struct with scheduling stats from proc[]
+  if(schedstat(st) < 0){
+    kfree((void*)st);
+    return -1;
+  }
+
+  // Safely copy from kernel heap → user space
+  if(copyout(myproc()->pagetable, addr, (char*)st, sizeof(*st)) < 0){
+    kfree((void*)st);
+    return -1;
+  }
+
+  // Always free what kalloc() gave us — kernel memory is precious
+  kfree((void*)st);
+
+  return 0;
 }
