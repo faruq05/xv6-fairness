@@ -5,6 +5,7 @@
 #include "memlayout.h"
 #include "spinlock.h"
 #include "proc.h"
+#include "pstat.h" //include new code
 #include "vm.h"
 
 uint64
@@ -106,4 +107,41 @@ sys_uptime(void)
   xticks = ticks;
   release(&tickslock);
   return xticks;
+}
+
+// new code
+// sys_schedstat - system call wrapper for schedstat()
+// The user passes a pointer to a struct pstat.
+// We extract that pointer, call the real schedstat() function,
+// and use copyout() to safely write the data into user memory.
+uint64
+sys_schedstat(void)
+{
+  uint64 addr;   // will hold the user-space pointer to struct pstat
+
+  // argaddr(0, &addr) reads the first argument (argument index 0)
+  // that the user passed to this syscall.
+  // The user called: schedstat(&st)
+  // So argument 0 is the address of their struct pstat variable.
+  argaddr(0, &addr);
+  if(addr == 0)
+    return -1;  // if we can't read the argument, return error
+
+  // Declare a local kernel-side copy of struct pstat.
+  // schedstat() will fill this in by reading the proc[] table.
+  struct pstat st;
+
+  // Call the real kernel function that fills st with data.
+  if(schedstat(&st) < 0)
+    return -1;
+
+  // copyout() copies bytes FROM kernel memory (our &st)
+  // TO user memory (the address the user gave us).
+  // Arguments: page table, destination address, source pointer, byte count.
+  // We MUST use copyout() and never write to addr directly —
+  // addr is a user virtual address, not a kernel address.
+  if(copyout(myproc()->pagetable, addr, (char*)&st, sizeof(st)) < 0)
+    return -1;
+
+  return 0;  // success
 }

@@ -42,3 +42,4 @@ entry("getpid");
 entry("sbrk");
 entry("pause");
 entry("uptime");
+entry("schedstat"); #new entry for assembly, new code

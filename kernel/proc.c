@@ -4,6 +4,7 @@
 #include "riscv.h"
 #include "spinlock.h"
 #include "proc.h"
+#include "pstat.h" //new code
 #include "defs.h"
 
 struct cpu cpus[NCPU];
@@ -720,4 +721,62 @@ procdump(void)
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
+}
+
+// new code
+// schedstat - fills a struct pstat with scheduling statistics
+// for all active processes. Called by sys_schedstat() in sysproc.c.
+// Returns 0 on success, -1 on error.
+int
+schedstat(struct pstat *st)
+{
+  struct proc *p;   // pointer to walk through proc[]
+  int i = 0;        // index into pstat arrays
+
+  // Safety check — if caller passed a null pointer, return error.
+  if(st == 0)
+    return -1;
+
+  // Walk every slot in the proc[] table.
+  // proc[] has exactly NPROC (64) entries.
+  // We scan all 64 regardless of state — inuse[] tells the user
+  // which ones are real processes.
+  for(p = proc; p < &proc[NPROC]; p++){
+
+    // Acquire the lock for this process entry.
+    // This prevents the scheduler from modifying p's fields
+    // while we are reading them — ensures consistent data.
+    acquire(&p->lock);
+
+    // inuse: is this slot holding a real process?
+    // Any state other than UNUSED means it's in use.
+    st->inuse[i] = (p->state != UNUSED);
+
+    // Copy the process ID.
+    st->pid[i] = p->pid;
+
+    // Copy the state as a plain integer.
+    // We cast from enum procstate to int.
+    // UNUSED=0, USED=1, SLEEPING=2, RUNNABLE=3, RUNNING=4, ZOMBIE=5
+    st->state[i] = (int)p->state;
+
+    // Copy the process name string.
+    // memmove is safe for overlapping memory; here we copy
+    // exactly 16 bytes (the size of p->name).
+    memmove(st->name[i], p->name, 16);
+
+    // Copy all four of our custom tracking fields.
+    st->cpu_ticks[i]       = p->cpu_ticks;
+    st->wait_ticks[i]      = p->wait_ticks;
+    st->sched_count[i]     = p->sched_count;
+    st->last_sched_tick[i] = p->last_sched_tick;
+
+    // Release the lock before moving to the next process.
+    // Never hold a lock longer than necessary.
+    release(&p->lock);
+
+    i++;   // move to next pstat slot
+  }
+
+  return 0;
 }
