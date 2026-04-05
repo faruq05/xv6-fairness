@@ -125,6 +125,25 @@ print_jain(int jain_scaled)
 }
 
 // -------------------------------------------------------
+// Helper: interpret Jain Fairness Index into categories
+// Input: scaled value (0–1000)
+// -------------------------------------------------------
+static char*
+fairness_comment(int jain_scaled)
+{
+  if(jain_scaled >= 900)
+    return "Highly fair (almost equal CPU distribution)";
+  else if(jain_scaled >= 700)
+    return "Moderately fair (minor imbalance)";
+  else if(jain_scaled >= 500)
+    return "Fair but uneven (noticeable imbalance)";
+  else if(jain_scaled >= 300)
+    return "Unfair (some processes dominate CPU)";
+  else
+    return "Highly unfair (possible starvation risk)";
+}
+
+// -------------------------------------------------------
 // Global pstat — avoids placing 3840 bytes on user stack
 // -------------------------------------------------------
 struct pstat st;
@@ -209,15 +228,17 @@ main(void)
 
   printf("\nTotal active processes : %d\n", active);
 
+  int jain = jain_index(&st);
   printf("Jain Fairness Index    : ");
-  print_jain(jain_index(&st));
-  printf("  (1.000 = perfectly fair)\n");
+  print_jain(jain);
+  //printf("  (1.000 = perfectly fair)\n");
+  printf(" - %s\n", fairness_comment(jain));
 
   if(starvation){
-    printf("Starvation warning     : YES - one or more processes\n");
-    printf("                         have high wait_ticks vs cpu_ticks\n");
+    //printf("Starvation warning     : YES - one or more processes\n");
+    //printf("                         have high wait_ticks vs cpu_ticks\n");
   } else {
-    printf("Starvation warning     : none\n");
+    //printf("Starvation warning     : none\n");
   }
 
   printf("\n");

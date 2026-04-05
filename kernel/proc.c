@@ -436,66 +436,59 @@ void
 scheduler(void)
 {
   struct proc *p;
-  struct proc *q; //new code: second pointer for the wait_ticks pass
+  struct proc *q;
   struct cpu *c = mycpu();
 
   c->proc = 0;
+
   for(;;){
-    // The most recent process to run may have had interrupts
-    // turned off; enable them to avoid a deadlock if all
-    // processes are waiting. Then turn them back off
-    // to avoid a possible race between an interrupt
-    // and wfi.
     intr_on();
-    intr_off();
+    //intr_off(); 
 
     int found = 0;
+
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
+
       if(p->state == RUNNABLE) {
-        //new code
-         // --- Fairness: record that this process was chosen ---
-        p->sched_count++;              // one more time the scheduler picked us
-        p->last_sched_tick = ticks;    // remember when we last ran
-
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
-
+        
         //new code
         // --- Fairness: increment wait_ticks for all OTHER RUNNABLE procs ---
-        // While p is getting the CPU, every other RUNNABLE process is waiting.
-        // We scan the whole proc[] table and increment their wait_ticks.
-        // We must NOT hold p->lock while acquiring q->lock — but actually
-        // we already hold p->lock here, and q != p, so it's safe.
         for(q = proc; q < &proc[NPROC]; q++){
-          if(q != p && q->state == RUNNABLE){
-            q->wait_ticks++;
+          if(q != p){
+            acquire(&q->lock);
+            if(q->state == RUNNABLE){
+              q->wait_ticks++;
+            }
+            release(&q->lock);
           }
         }
 
-        swtch(&c->context, &p->context); //initially there
+        // --- Fairness: record scheduling ---
+        p->sched_count++;
+        p->last_sched_tick = ticks;
 
-        //new code
-        //--- Fairness: process finished its turn, credit one CPU tick ---
+        // Run process
+        p->state = RUNNING;
+        c->proc = p;
+
+        swtch(&c->context, &p->context);
+
+        // --- Fairness: CPU usage ---
         p->cpu_ticks++;
 
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
         c->proc = 0;
         found = 1;
       }
+
       release(&p->lock);
     }
+
     if(found == 0) {
-      // nothing to run; stop running on this core until an interrupt.
       asm volatile("wfi");
     }
   }
 }
-
 // Switch to scheduler.  Must hold only p->lock
 // and have changed proc->state. Saves and restores
 // intena because intena is a property of this
