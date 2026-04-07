@@ -111,40 +111,29 @@ sys_uptime(void)
 
 // new code
 // sys_schedstat - system call wrapper for schedstat()
-// The user passes a pointer to a struct pstat.
-// We extract that pointer, call the real schedstat() function,
-// and use copyout() to safely write the data into user memory.
-uint64
 sys_schedstat(void)
 {
   uint64 addr;
-
-  // Read the user pointer (argument 0)
+  // Reads the address passed by user (&st)
   argaddr(0, &addr);
 
   if(addr == 0)
     return -1;
 
-  // Allocate struct pstat on the kernel HEAP, not the stack.
-  // kalloc() gives us one page (4096 bytes) of kernel memory.
-  // Our struct pstat is 3840 bytes so it fits safely.
+  // Allocate memory in kernel
   struct pstat *st = (struct pstat*)kalloc();
   if(st == 0)
-    return -1;   // out of memory
-
-  // Fill the struct with scheduling stats from proc[]
+    return -1;  
+  // Collect process statistics from proc[]
   if(schedstat(st) < 0){
     kfree((void*)st);
     return -1;
   }
-
-  // Safely copy from kernel heap → user space
   if(copyout(myproc()->pagetable, addr, (char*)st, sizeof(*st)) < 0){
     kfree((void*)st);
     return -1;
   }
 
-  // Always free what kalloc() gave us — kernel memory is precious
   kfree((void*)st);
 
   return 0;

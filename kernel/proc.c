@@ -150,9 +150,7 @@ found:
   p->context.sp = p->kstack + PGSIZE;
 
   //new code
-  // --- Fairness Analyser: zero out tracking fields ---
-  // We must initialize to 0 here. If we don't, these fields
-  // contain leftover garbage from whatever used this memory before.
+  // We must initialize to 0 here. If we don't, these fields contain leftover garbage from whatever used this memory before.
   p->cpu_ticks      = 0;
   p->wait_ticks     = 0;
   p->sched_count    = 0;
@@ -443,8 +441,6 @@ scheduler(void)
 
   for(;;){
     intr_on();
-    //intr_off(); 
-
     int found = 0;
 
     for(p = proc; p < &proc[NPROC]; p++) {
@@ -453,7 +449,7 @@ scheduler(void)
       if(p->state == RUNNABLE) {
         
         //new code
-        // --- Fairness: increment wait_ticks for all OTHER RUNNABLE procs ---
+        // Hook01: counts waiting time for every other ready process.
         for(q = proc; q < &proc[NPROC]; q++){
           if(q != p){
             acquire(&q->lock);
@@ -464,7 +460,8 @@ scheduler(void)
           }
         }
 
-        // --- Fairness: record scheduling ---
+        //new code
+        //hook 02: process is being chosen. records the moment of selection
         p->sched_count++;
         p->last_sched_tick = ticks;
 
@@ -474,7 +471,7 @@ scheduler(void)
 
         swtch(&c->context, &p->context);
 
-        // --- Fairness: CPU usage ---
+        //Hook 3: credits one CPU tick after the process finishes its turn
         p->cpu_ticks++;
 
         c->proc = 0;
@@ -717,45 +714,27 @@ procdump(void)
 }
 
 // new code
-// schedstat - fills a struct pstat with scheduling statistics
-// for all active processes. Called by sys_schedstat() in sysproc.c.
-// Returns 0 on success, -1 on error.
+// It copies information of all processes from kernel (proc[]) into a structure (pstat) so user programs can read it.
 int
 schedstat(struct pstat *st)
 {
   struct proc *p;   // pointer to walk through proc[]
   int i = 0;        // index into pstat arrays
 
-  // Safety check — if caller passed a null pointer, return error.
   if(st == 0)
     return -1;
 
-  // Walk every slot in the proc[] table.
-  // proc[] has exactly NPROC (64) entries.
-  // We scan all 64 regardless of state — inuse[] tells the user
-  // which ones are real processes.
+  // Go through all processes
   for(p = proc; p < &proc[NPROC]; p++){
 
-    // Acquire the lock for this process entry.
-    // This prevents the scheduler from modifying p's fields
-    // while we are reading them — ensures consistent data.
+    // Prevent scheduler from changing data while reading
     acquire(&p->lock);
 
-    // inuse: is this slot holding a real process?
-    // Any state other than UNUSED means it's in use.
+    // Copy process info
     st->inuse[i] = (p->state != UNUSED);
-
-    // Copy the process ID.
     st->pid[i] = p->pid;
-
-    // Copy the state as a plain integer.
-    // We cast from enum procstate to int.
     // UNUSED=0, USED=1, SLEEPING=2, RUNNABLE=3, RUNNING=4, ZOMBIE=5
     st->state[i] = (int)p->state;
-
-    // Copy the process name string.
-    // memmove is safe for overlapping memory; here we copy
-    // exactly 16 bytes (the size of p->name).
     memmove(st->name[i], p->name, 16);
 
     // Copy all four of our custom tracking fields.
@@ -764,10 +743,8 @@ schedstat(struct pstat *st)
     st->sched_count[i]     = p->sched_count;
     st->last_sched_tick[i] = p->last_sched_tick;
 
-    // Release the lock before moving to the next process.
-    // Never hold a lock longer than necessary.
+    // Unlock process
     release(&p->lock);
-
     i++;   // move to next pstat slot
   }
 

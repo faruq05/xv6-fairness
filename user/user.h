@@ -1,7 +1,7 @@
 #define SBRK_ERROR ((char *)-1)
 
 struct stat;
-struct rtcdate; //new code
+struct rtcdate;
 struct pstat; //new code
 
 // system calls

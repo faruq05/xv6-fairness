@@ -105,7 +105,7 @@ struct proc {
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
   
-  // --- New code: Fairness Analyser fields  ---
+  // --- New code: for tracking  ---
   uint64 cpu_ticks;            // total timer ticks this process ran on CPU
   uint64 wait_ticks;           // total ticks spent RUNNABLE but not scheduled
   uint64 sched_count;          // how many times the scheduler picked this process

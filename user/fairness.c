@@ -161,29 +161,6 @@ main(void)
 
   // ---- Header ----
   printf("\n=== Process-Thread Fairness Analyser ===\n");
-  printf("    CSE323 Group 03 - xv6-riscv\n\n");
-
-  // // ---- Column headers (manually padded) ----
-  // print_str_left("PID",         6);
-  // printf("  ");
-  // print_str_left("NAME",        15);
-  // printf("  ");
-  // print_str_left("STATE",       10);
-  // printf("  ");
-  // print_uint64_right(0,          9); // placeholder to print header right-aligned
-  // // We can't use the uint helper for header strings, so do it manually:
-  // // Reprint the header line entirely as plain strings with manual spacing
-  // printf("\n");
-
-  // // Reprint header properly — plain strings, manually spaced
-  // // PID(6) + 2 + NAME(15) + 2 + STATE(10) + 2 + CPU_TICKS(9) + 2 + WAIT_TICKS(10) + 2 + SCHED_COUNT(11)
-  // printf("PID    ");             // 6+2 = 8 wide including separator
-  // printf("NAME             ");   // 15+2 = 17
-  // printf("STATE       ");        // 10+2 = 12
-  // printf("CPU_TICKS  ");         // 9+2 = 11
-  // printf("WAIT_TICKS  ");        // 10+2 = 12
-  // printf("SCHED_COUNT\n");       // 11
-
   printf("PID    ");
   printf("NAME             ");
   printf("STATE       ");

@@ -2,13 +2,9 @@
 #define _PSTAT_H_
 
 // Maximum number of processes in xv6 (defined in kernel/param.h as 64)
-// We restate it here so this header is self-contained.
 #define NPROC_STAT 64
 
 // Per-process scheduling statistics.
-// This struct is filled by the kernel's schedstat() function
-// and copied to user space via copyout().
-// Arrays are indexed 0..NPROC_STAT-1, one slot per proc[] entry.
 struct pstat {
   int    inuse[NPROC_STAT];           // 1 = slot is a live process, 0 = empty
   int    pid[NPROC_STAT];             // process ID
