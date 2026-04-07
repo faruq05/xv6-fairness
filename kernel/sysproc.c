@@ -111,6 +111,7 @@ sys_uptime(void)
 
 // new code
 // sys_schedstat - system call wrapper for schedstat()
+uint64
 sys_schedstat(void)
 {
   uint64 addr;
