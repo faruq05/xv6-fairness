@@ -6,6 +6,7 @@
 #include "proc.h"
 #include "pstat.h" //new code
 #include "defs.h"
+#include "strncmp" //new code: auto protect logic
 
 struct cpu cpus[NCPU];
 
@@ -155,6 +156,8 @@ found:
   p->wait_ticks     = 0;
   p->sched_count    = 0;
   p->last_sched_tick = 0;
+  p->boost           = 0;  // new code: Feature 2: no boost at start
+  p->boosted         = 0;  // new code: Feature 2: never boosted at start
   return p;
 }
 
@@ -447,7 +450,17 @@ scheduler(void)
       acquire(&p->lock);
 
       if(p->state == RUNNABLE) {
-        
+        //new code
+        // --- Feature 2: auto-protect the starvation tool ---
+        // If this process is named "starvation", guarantee it
+        // at least 3 consecutive turns every time it is picked.
+        // This means the starvation tool can never itself starve —
+        // it always gets enough CPU to run to completion.
+        // strncmp compares the first 10 characters of p->name.
+        if(strncmp(p->name, "starvation", 10) == 0){
+          if(p->boost < 3)
+            p->boost = 3;
+        }
         //new code
         // Hook01: counts waiting time for every other ready process.
         for(q = proc; q < &proc[NPROC]; q++){
@@ -486,6 +499,56 @@ scheduler(void)
     }
   }
 }
+
+///new code
+// setboost — kernel function to give a process extra scheduler turns.
+// Called by sys_setboost() in sysproc.c.
+//
+// pid          = the PID of the process to boost
+// boost_amount = how many extra consecutive turns to grant
+//
+// Returns 0 on success.
+// Returns -1 if pid is invalid or process not found.
+int
+setboost(int pid, int boost_amount)
+{
+  struct proc *p;
+
+  // Validate arguments
+  if(pid <= 0)
+    return -1;
+
+  if(boost_amount <= 0)
+    return -1;
+
+  // Cap boost at 20 so no single process can monopolize the CPU
+  // by being given an enormous boost amount.
+  if(boost_amount > 20)
+    boost_amount = 20;
+
+  // Walk the entire proc[] table to find the matching PID
+  for(p = proc; p < &proc[NPROC]; p++){
+    acquire(&p->lock);
+
+    // Match by PID. Only boost processes that are alive —
+    // UNUSED and ZOMBIE processes cannot be boosted.
+    if(p->pid == pid &&
+       p->state != UNUSED &&
+       p->state != ZOMBIE){
+
+      p->boost   = boost_amount; // grant the extra turns
+      p->boosted = 1;            // mark permanently as ever-boosted
+      release(&p->lock);
+      return 0;                  // success
+    }
+
+    release(&p->lock);
+  }
+
+  // If we get here, no matching live process was found
+  return -1;
+}
+
 // Switch to scheduler.  Must hold only p->lock
 // and have changed proc->state. Saves and restores
 // intena because intena is a property of this
