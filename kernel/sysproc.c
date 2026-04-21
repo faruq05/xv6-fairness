@@ -6,6 +6,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "pstat.h" //include new code
+#include "booststat.h" //new code
 #include "vm.h"
 
 uint64
@@ -138,4 +139,38 @@ sys_schedstat(void)
   kfree((void*)st);
 
   return 0;
+}
+
+// new code
+// The user calls: setboost(pid, amount)
+// We read both integer arguments using argint().
+// argint(0, &pid)    reads the first argument  — the PID
+// argint(1, &amount) reads the second argument — the boost amount
+//
+// We validate arguments then call the real kernel setboost()
+// function which walks proc[] and sets the boost counter.
+uint64
+sys_setboost(void)
+{
+  int pid;
+  int amount;
+
+  // argint() safely reads integer arguments passed by the user.
+  // It reads from the trapframe registers where the calling
+  // convention places function arguments.
+  // argint does not return a value in this xv6 version —
+  // same pattern as argaddr() in sys_schedstat.
+  argint(0, &pid);
+  argint(1, &amount);
+
+  // Validate: pid must be positive
+  if(pid <= 0)
+    return -1;
+
+  // If user passed 0 or negative amount, use default of 10 turns
+  if(amount <= 0)
+    amount = 10;
+
+  // Call the real kernel function defined in proc.c
+  return setboost(pid, amount);
 }
