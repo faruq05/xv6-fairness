@@ -102,6 +102,7 @@ extern uint64 sys_link(void);
 extern uint64 sys_mkdir(void);
 extern uint64 sys_close(void);
 extern uint64 sys_schedstat(void); //new extern for system call
+extern uint64 sys_setboost(void); // new extern for boosting
 
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
@@ -128,6 +129,7 @@ static uint64 (*syscalls[])(void) = {
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
 [SYS_schedstat] sys_schedstat, //new system call
+[SYS_setboost]  sys_setboost, ///new code
 };
 
 void
