@@ -27,6 +27,7 @@ char* sys_sbrk(int,int);
 int pause(int);
 int uptime(void);
 int schedstat(struct pstat*); //new code
+int setboost(int, int);//new code
 
 // ulib.c
 int stat(const char*, struct stat*);

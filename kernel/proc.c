@@ -6,7 +6,6 @@
 #include "proc.h"
 #include "pstat.h" //new code
 #include "defs.h"
-#include "strncmp" //new code: auto protect logic
 
 struct cpu cpus[NCPU];
 
@@ -437,9 +436,7 @@ void
 scheduler(void)
 {
   struct proc *p;
-  struct proc *q;
   struct cpu *c = mycpu();
-
   c->proc = 0;
 
   for(;;){
@@ -450,56 +447,49 @@ scheduler(void)
       acquire(&p->lock);
 
       if(p->state == RUNNABLE) {
-        //new code
-        // --- Feature 2: auto-protect the starvation tool ---
-        // If this process is named "starvation", guarantee it
-        // at least 3 consecutive turns every time it is picked.
-        // This means the starvation tool can never itself starve —
-        // it always gets enough CPU to run to completion.
-        // strncmp compares the first 10 characters of p->name.
+
+        // Auto-protect starvation tool
         if(strncmp(p->name, "starvation", 10) == 0){
-          if(p->boost < 3)
-            p->boost = 3;
-        }
-        //new code
-        // Hook01: counts waiting time for every other ready process.
-        for(q = proc; q < &proc[NPROC]; q++){
-          if(q != p){
-            acquire(&q->lock);
-            if(q->state == RUNNABLE){
-              q->wait_ticks++;
-            }
-            release(&q->lock);
-          }
+          if(p->boost < 100)
+            p->boost = 100;
         }
 
-        //new code
-        //hook 02: process is being chosen. records the moment of selection
+        // INCREMENT wait_ticks for THIS process —
+        // it was RUNNABLE and had to wait its turn
+        // Only count once per scheduling decision, not a loop
+        // This is O(1) not O(N²)
+        p->wait_ticks++;
+
         p->sched_count++;
         p->last_sched_tick = ticks;
-
-        // Run process
         p->state = RUNNING;
         c->proc = p;
-
         swtch(&c->context, &p->context);
-
-        //Hook 3: credits one CPU tick after the process finishes its turn
         p->cpu_ticks++;
-
         c->proc = 0;
         found = 1;
+
+        // Consume boost turns
+        while(p->boost > 0 && p->state == RUNNABLE){
+          p->boost--;
+          p->sched_count++;
+          p->last_sched_tick = ticks;
+          p->state = RUNNING;
+          c->proc = p;
+          swtch(&c->context, &p->context);
+          p->cpu_ticks++;
+          c->proc = 0;
+        }
       }
 
       release(&p->lock);
     }
 
-    if(found == 0) {
+    if(found == 0){
       asm volatile("wfi");
     }
   }
 }
-
 ///new code
 // setboost — kernel function to give a process extra scheduler turns.
 // Called by sys_setboost() in sysproc.c.
@@ -536,10 +526,12 @@ setboost(int pid, int boost_amount)
        p->state != UNUSED &&
        p->state != ZOMBIE){
 
-      p->boost   = boost_amount; // grant the extra turns
-      p->boosted = 1;            // mark permanently as ever-boosted
+      p->boost      = boost_amount;
+      p->boosted    = 1;
+      p->wait_ticks = 0;   // reset accumulated wait — ratio drops to 0
+      p->cpu_ticks  = 0;   // reset cpu count — clean slate
       release(&p->lock);
-      return 0;                  // success
+      return 0;
     }
 
     release(&p->lock);
