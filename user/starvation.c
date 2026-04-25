@@ -167,9 +167,13 @@ print_report(struct pstat *st)
     if(!st->inuse[i] || st->state[i] == 0) continue;
     total++;
     int s = severity(st->wait_ticks[i], st->cpu_ticks[i]);
-    if(s == 0)      healthy++;
-    else if(s == 1) starving++;
-    else            critical++;
+    if(strncmp(st->name[i], "starvation", 10)==0){
+      healthy++;
+    }else{
+      if(s == 0)      healthy++;
+      else if(s == 1) starving++;
+      else            critical++;
+    }
   }
 
   // Header
@@ -243,7 +247,7 @@ print_report(struct pstat *st)
   if(starving > 0 || critical > 0){
     printf("\nStarving processes detected.\n");
     printf("To boost a process     : starvation boost <pid>\n");
-    printf("To boost with amount   : starvation boost <pid> <amount>\n");
+    // printf("To boost with amount   : starvation boost <pid> <amount>\n");
   } else {
     printf("\nAll processes are healthy.\n");
   }
