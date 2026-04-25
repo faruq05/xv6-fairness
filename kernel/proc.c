@@ -431,28 +431,27 @@ void
 scheduler(void)
 {
   struct proc *p;
+  struct proc *q;
   struct cpu *c = mycpu();
-  c->proc = 0;
+  struct proc *last_ran = 0;
 
+  c->proc = 0;
   for(;;){
     intr_on();
     int found = 0;
 
-    for(p = proc; p < &proc[NPROC]; p++) {
+    for(p = proc; p < &proc[NPROC]; p++){
       acquire(&p->lock);
 
-      if(p->state == RUNNABLE) {
+      if(p->state == RUNNABLE){
 
-        // Auto-protect starvation tool
+        // auto protect starvation tool
         if(strncmp(p->name, "starvation", 10) == 0){
           if(p->boost < 100)
             p->boost = 100;
         }
 
-        // INCREMENT wait_ticks for THIS process —
-        // it was RUNNABLE and had to wait its turn. This is O(1) not O(N²)
-        p->wait_ticks++;
-
+        // run the process
         p->sched_count++;
         p->last_sched_tick = ticks;
         p->state = RUNNING;
@@ -460,9 +459,10 @@ scheduler(void)
         swtch(&c->context, &p->context);
         p->cpu_ticks++;
         c->proc = 0;
+        last_ran = p;
         found = 1;
 
-        // Consume boost turns
+        // consume boost turns
         while(p->boost > 0 && p->state == RUNNABLE){
           p->boost--;
           p->sched_count++;
@@ -476,6 +476,18 @@ scheduler(void)
       }
 
       release(&p->lock);
+    }
+
+    // SEPARATE pass — never nested — O(N)
+    // increment wait for everyone who did NOT run this round
+    if(last_ran != 0){
+      for(q = proc; q < &proc[NPROC]; q++){
+        acquire(&q->lock);
+        if(q->state == RUNNABLE && q != last_ran){
+          q->wait_ticks++;
+        }
+        release(&q->lock);
+      }
     }
 
     if(found == 0){
