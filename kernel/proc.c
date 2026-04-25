@@ -427,11 +427,6 @@ kwait(uint64 addr)
 
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
-// Scheduler never returns.  It loops, doing:
-//  - choose a process to run.
-//  - swtch to start running that process.
-//  - eventually that process transfers control
-//    via swtch back to the scheduler.
 void
 scheduler(void)
 {
@@ -455,9 +450,7 @@ scheduler(void)
         }
 
         // INCREMENT wait_ticks for THIS process —
-        // it was RUNNABLE and had to wait its turn
-        // Only count once per scheduling decision, not a loop
-        // This is O(1) not O(N²)
+        // it was RUNNABLE and had to wait its turn. This is O(1) not O(N²)
         p->wait_ticks++;
 
         p->sched_count++;

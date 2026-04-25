@@ -4,10 +4,8 @@
 // Maximum number of process slots — matches NPROC in param.h
 #define NPROC_BOOST 64
 
-// Per-process boost statistics.
-// Kept separate from pstat.h intentionally —
-// pstat.h is already 3840 bytes which is near the 4096-byte
-// kalloc() limit. Adding boost fields there would overflow it.
+// Per-process boost statistics. Stop sys_schedstat from overflow and crash
+// pstat.h is already 3840 bytes which is near the 4096-byte. kalloc() limit.
 // This struct is only 512 bytes and fits safely on its own.
 struct booststat {
   int boost[NPROC_BOOST];    // remaining extra turns for each process

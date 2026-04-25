@@ -112,6 +112,6 @@ struct proc {
   uint64 last_sched_tick;      // value of ticks global when process last ran
 
    // --- Feature 2: priority boost fields ---
-  int boost;    // extra consecutive scheduler turns remaining
+  int boost;    // How many Boost turns left to consume
   int boosted;  // 1 = this process was ever boosted, 0 = never
 };

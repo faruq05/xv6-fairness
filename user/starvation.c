@@ -2,34 +2,23 @@
 #include "kernel/stat.h"
 #include "kernel/pstat.h"
 #include "user/user.h"
-// -------------------------------------------------------
 // Starvation severity thresholds
 // ratio = wait_ticks / (cpu_ticks + 1)
-//
-// We add 1 to cpu_ticks to avoid division by zero when
-// a process has never received any CPU time yet.
-//
 // ratio < 1   → HEALTHY  — normal amount of waiting
 // ratio 3  → STARVING — waiting much more than running
 // ratio > 10  → CRITICAL — severely starved of CPU
-// -------------------------------------------------------
 #define RATIO_HEALTHY   1
 #define RATIO_STARVING  3
 
-// -------------------------------------------------------
-// Helper: calculate starvation ratio for a process
+// calculate starvation ratio for a process
 // Returns wait / (cpu + 1) as a plain integer
-// -------------------------------------------------------
 static uint64
 calc_ratio(uint64 wait, uint64 cpu)
 {
   return wait / (cpu + 1);
 }
 
-// -------------------------------------------------------
-// Helper: classify severity
 // Returns 0 = healthy, 1 = starving, 2 = critical
-// -------------------------------------------------------
 static int
 severity(uint64 wait, uint64 cpu)
 {
@@ -39,9 +28,7 @@ severity(uint64 wait, uint64 cpu)
   return 2;
 }
 
-// -------------------------------------------------------
-// Helper: convert state integer to readable string
-// -------------------------------------------------------
+// convert state integer to readable string
 static char*
 state_str(int s)
 {
@@ -56,9 +43,7 @@ state_str(int s)
   }
 }
 
-// -------------------------------------------------------
-// Helper: print string left-aligned to width w
-// -------------------------------------------------------
+// print string left-aligned to width w
 static void
 psl(char *s, int w)
 {
@@ -69,9 +54,7 @@ psl(char *s, int w)
   for(int i = l; i < w; i++) printf(" ");
 }
 
-// -------------------------------------------------------
-// Helper: print int left-aligned to width w
-// -------------------------------------------------------
+// print int left-aligned to width w
 static void
 pil(int n, int w)
 {
@@ -82,9 +65,7 @@ pil(int n, int w)
   for(int i = d; i < w; i++) printf(" ");
 }
 
-// -------------------------------------------------------
-// Helper: print uint64 right-aligned to width w
-// -------------------------------------------------------
+// print uint64 right-aligned to width w
 static void
 pur(uint64 n, int w)
 {
@@ -96,9 +77,7 @@ pur(uint64 n, int w)
   printf("%lu", n);
 }
 
-// -------------------------------------------------------
-// Helper: print divider line of dashes
-// -------------------------------------------------------
+// print divider line of dashes
 static void
 divider(int n)
 {
@@ -106,14 +85,12 @@ divider(int n)
   printf("\n");
 }
 
-// -------------------------------------------------------
-// Helper: Jain's Fairness Index scaled by 1000
+// Jain's Fairness Index scaled by 1000
 // Same implementation as fairness.c — integer math only.
 // Returns 0-1000 where 1000 = perfectly fair (F=1.000)
 //
 // Formula: F = (sum of x)^2 / (n * sum of x^2)
 // where x = cpu_ticks of each active process
-// -------------------------------------------------------
 static int
 jain_index(struct pstat *st)
 {
@@ -140,11 +117,9 @@ jain_index(struct pstat *st)
   return (int)(numerator / denominator);
 }
 
-// -------------------------------------------------------
-// Helper: print Jain index as decimal
+// print Jain index as decimal
 // e.g. jain_scaled=980 prints "0.980"
 //      jain_scaled=1000 prints "1.000"
-// -------------------------------------------------------
 static void
 print_jain(int jain_scaled)
 {
@@ -157,10 +132,8 @@ print_jain(int jain_scaled)
      frac        % 10);
 }
 
-// -------------------------------------------------------
 // find_name — given a pid, find its name in pstat
 // returns pointer to the name string or "unknown"
-// -------------------------------------------------------
 static char*
 find_name(struct pstat *st, int pid)
 {
@@ -171,10 +144,8 @@ find_name(struct pstat *st, int pid)
   return "unknown";
 }
 
-// -------------------------------------------------------
 // print_report — prints the full starvation report.
 // Called when user types: starvation
-// -------------------------------------------------------
 int strncmp(const char *s1, const char *s2, int n) {
   for(int i = 0; i < n; i++) {
     if(s1[i] != s2[i] || s1[i] == '\0' || s2[i] == '\0')
@@ -203,9 +174,7 @@ print_report(struct pstat *st)
 
   // Header
   printf("\n=== Starvation Report ===\n");
-  printf("[KERNEL PROTECTION ACTIVE]\n");
-  printf("This tool is protected by the kernel scheduler.\n");
-  printf("Process named 'starvation' always gets minimum 3\n");
+  printf("[KERNEL PROTECTION ACTIVE], Process starvation won't starve\n");
   // Summary counts
   printf("Total processes  : %d\n", total);
   printf("Healthy          : %d\n", healthy);
@@ -281,11 +250,9 @@ print_report(struct pstat *st)
   printf("\n");
 }
 
-// -------------------------------------------------------
 // do_boost — boosts a specific PID.
 // Called when user types: starvation boost <pid>
 //                     or: starvation boost <pid> <amount>
-// -------------------------------------------------------
 static void
 do_boost(struct pstat *st, int pid, int amount)
 {
@@ -320,25 +287,19 @@ do_boost(struct pstat *st, int pid, int amount)
   }
 }
 
-// -------------------------------------------------------
-// Helper: convert string to integer (atoi equivalent)
+// convert string to integer (atoi equivalent)
 // xv6 user.h has atoi() available — we use it directly
-// -------------------------------------------------------
 
-// -------------------------------------------------------
 // Global pstat — declared globally to avoid placing
 // 3840 bytes on the user stack which would overflow it
-// -------------------------------------------------------
 struct pstat st;
 
-// -------------------------------------------------------
 // main — entry point
 //
 // Usage:
 //   starvation                     — print full report
 //   starvation boost <pid>         — boost PID with 10 turns
 //   starvation boost <pid> <amt>   — boost PID with amt turns
-// -------------------------------------------------------
 int
 main(int argc, char *argv[])
 {
@@ -376,6 +337,6 @@ main(int argc, char *argv[])
   fprintf(2, "Usage:\n");
   fprintf(2, "  starvation                   - show starvation report\n");
   fprintf(2, "  starvation boost <pid>        - boost a process\n");
-  fprintf(2, "  starvation boost <pid> <amt>  - boost with amount\n");
+  // fprintf(2, "  starvation boost <pid> <amt>  - boost with amount\n");
   exit(1);
 }
