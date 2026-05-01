@@ -1,6 +1,9 @@
 This is a modified xv6
 The default xv6 operating system comes with a very simple round-robin scheduler. Every time the timer fires, the scheduler picks the next process in the list, lets it run for one tick, then moves on. But it has no CPU usage tracking, no waiting time measurement, no fairness metric and no way to detect or fix starvation. The scheduler in kernel simply loops through the process table. When it finds the first RUNNABLE process, it runs the process for one tick and repeats forever. If a process is being skipped over and over, the OS has no awareness of this and neither does the user. 
 
+
+##################################################################
+Original xv6 readme:
 xv6 is a re-implementation of Dennis Ritchie's and Ken Thompson's Unix
 Version 6 (v6).  xv6 loosely follows the structure and style of v6,
 but is implemented for a modern RISC-V multiprocessor using ANSI C.
